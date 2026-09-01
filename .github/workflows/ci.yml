@@ -1,0 +1,34 @@
+# CI for pykvd — build the maturin wheel and smoke-test the import.
+
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install maturin
+        run: pip install maturin
+
+      - name: Build wheel
+        run: maturin build --out dist
+
+      - name: Install and smoke-test
+        run: |
+          pip install dist/*.whl
+          python -c "import pykvd; print(pykvd.canonical('app:\n  port: 8080\n'))"
