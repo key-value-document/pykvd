@@ -1,4 +1,6 @@
 /target
-lcov.info
-*.profraw
+__pycache__/
 coverage/
+dist/
+*.profraw
+lcov.info
