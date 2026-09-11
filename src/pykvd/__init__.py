@@ -1,16 +1,43 @@
 """Python bindings for the KVD key-value document format.
 
-This is a scaffold. It currently exposes a single function::
+Built on kvd-rs via PyO3. Documents map to plain Python objects:
+mappings become dicts, lists become lists, and scalars become
+str, int, float, bool, or None (for `null`).
+
+Example::
 
     import pykvd
 
-    # Normalize/validate a KVD document to its canonical form.
-    pykvd.canonical('app:\\n  port: 8080\\n')  # -> 'app:\\n  port: 8080\\n'
-
-More of the kvd-rs API (schema verification, operations, serde-style
-round-tripping) will be bound here as the package grows.
+    doc = pykvd.loads('app:\\n  port: 8080\\n')
+    pykvd.dumps(doc)  # canonical KVD text
+    pykvd.verify('port: 8080\\n', 'port: int\\n')
+    pykvd.get('app:\\n  port: 8080\\n', 'app.port')
 """
 
-from pykvd.pykvd import canonical
+from pykvd.pykvd import (
+    KvdError,
+    OpError,
+    SchemaError,
+    canonical,
+    dumps,
+    get,
+    loads,
+    remove,
+    set,
+    validate_schema,
+    verify,
+)
 
-__all__ = ["canonical"]
+__all__ = [
+    "KvdError",
+    "OpError",
+    "SchemaError",
+    "canonical",
+    "dumps",
+    "get",
+    "loads",
+    "remove",
+    "set",
+    "validate_schema",
+    "verify",
+]

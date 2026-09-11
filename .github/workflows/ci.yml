@@ -23,7 +23,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Install maturin
-        run: pip install maturin
+        run: pip install maturin pytest
 
       - name: Build wheel
         run: maturin build --out dist
@@ -32,3 +32,4 @@ jobs:
         run: |
           pip install dist/*.whl
           python -c "import pykvd; print(pykvd.canonical('app:\n  port: 8080\n'))"
+          python -m pytest tests/ -q
