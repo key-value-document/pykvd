@@ -35,7 +35,15 @@ pykvd.validate_schema("port: int\n")
 pykvd.get("app:\n  port: 8080\n", "app.port")
 pykvd.set("app:\n  port: 8080\n", "app.port", 9090)
 pykvd.remove("app:\n  port: 8080\n", "app.port")
+pykvd.remove("a:\n  b:\n    c: 1\n", "a.b.c", recursive=True)
 ```
+
+Type notes:
+
+- `dumps` accepts dicts, lists, tuples (as lists), str, int, float, bool,
+  and None. Integers must fit in u64; larger values raise `KvdError`.
+- Int literals beyond u64 parse but come back from `loads` as strings.
+- The document root must be a mapping (spec 4).
 
 Errors:
 

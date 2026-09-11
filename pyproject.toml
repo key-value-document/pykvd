@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "pykvd"
-version = "1.0.0"
+version = "1.1.0"
 description = "Python bindings for the KVD key-value document format"
 readme = "README.md"
 requires-python = ">=3.11"

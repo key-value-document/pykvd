@@ -5,7 +5,7 @@ use kvd_rs::serialize::to_string as serialize_to_string;
 use kvd_rs::value::{Node, Scalar, Shape};
 use pyo3::exceptions::{PyKeyError, PyValueError};
 use pyo3::prelude::*;
-use pyo3::types::{PyAny, PyBool, PyDict, PyFloat, PyList, PyNone, PyString};
+use pyo3::types::{PyAny, PyBool, PyDict, PyFloat, PyInt, PyList, PyNone, PyString, PyTuple};
 
 pyo3::create_exception!(pykvd, KvdError, PyValueError);
 pyo3::create_exception!(pykvd, SchemaError, KvdError);
@@ -104,8 +104,19 @@ fn py_to_node(value: &Bound<'_, PyAny>) -> PyResult<Node> {
     if let Ok(b) = value.cast::<PyBool>() {
         return Ok(Node::scalar(Shape::Bool, b.is_true().to_string()));
     }
-    if let Ok(i) = value.extract::<i64>() {
-        return Ok(Node::scalar(Shape::Int, i.to_string()));
+    // Python ints are arbitrary precision; KVD ints are i64/u64. Anything
+    // outside that range has no KVD representation, so reject it rather
+    // than degrade through f64 and lose precision.
+    if let Ok(l) = value.cast::<PyInt>() {
+        if let Ok(i) = l.extract::<i64>() {
+            return Ok(Node::scalar(Shape::Int, i.to_string()));
+        }
+        if let Ok(u) = l.extract::<u64>() {
+            return Ok(Node::scalar(Shape::Int, u.to_string()));
+        }
+        return Err(KvdError::new_err(
+            "integer out of range for KVD (must fit in u64)",
+        ));
     }
     if let Ok(f) = value.extract::<f64>() {
         if !f.is_finite() {
@@ -154,6 +165,14 @@ fn py_to_node(value: &Bound<'_, PyAny>) -> PyResult<Node> {
         }
         return Ok(Node::list(items));
     }
+    // Tuples have no KVD counterpart; accept them as lists.
+    if let Ok(t) = value.cast::<PyTuple>() {
+        let mut items = Vec::with_capacity(t.len());
+        for item in t.iter() {
+            items.push(py_to_node(&item)?);
+        }
+        return Ok(Node::list(items));
+    }
     Err(KvdError::new_err(format!(
         "unsupported Python type: {}",
         value
@@ -173,13 +192,27 @@ fn loads(py: Python<'_>, text: &str) -> PyResult<Py<PyAny>> {
     Ok(node_to_py(py, &doc)?.into())
 }
 
-/// Serialize Python objects (dicts, lists, str, int, float, bool, None) to canonical KVD.
+/// Serialize Python objects (dicts, lists, tuples, str, int, float, bool, None)
+/// to canonical KVD.
 ///
+/// Integers must fit in u64; larger values raise `KvdError` since KVD has no
+/// arbitrary-precision representation. Int literals beyond u64 parse but come
+/// back from `loads` as strings for the same reason. The document root must
+/// be a mapping (spec 4); anything else raises `KvdError`.
 /// Raises `KvdError` on unsupported types or non-finite floats.
 #[pyfunction]
-fn dumps(_py: Python<'_>, value: Bound<'_, PyAny>) -> PyResult<String> {
+fn dumps(value: Bound<'_, PyAny>) -> PyResult<String> {
     let node = py_to_node(&value)?;
-    serialize_to_string(&node).map_err(serialize_err)
+    serialize_to_string(&node).map_err(|e| {
+        KvdError::new_err(format!(
+            "cannot serialize {} to KVD (document root must be a mapping): {e}",
+            value
+                .get_type()
+                .name()
+                .map(|n| n.to_string_lossy().into_owned())
+                .unwrap_or_else(|_| "?".to_string())
+        ))
+    })
 }
 
 /// Parse a KVD document and return its canonical serialization.
@@ -267,11 +300,21 @@ fn set(text: &str, path: &str, value: Bound<'_, PyAny>) -> PyResult<String> {
 }
 
 /// Remove the value at `path` from a KVD document; returns the updated canonical text.
+///
+/// When `recursive` is true, now-empty ancestor maps are pruned (like
+/// `remove_recursive` in kvd-rs); otherwise ancestors are left as empty `{}`.
 #[pyfunction]
-fn remove(text: &str, path: &str) -> PyResult<String> {
+#[pyo3(signature = (text, path, recursive=false))]
+fn remove(text: &str, path: &str, recursive: bool) -> PyResult<String> {
     let mut doc = from_str(text).map_err(parse_err)?;
     let p = Path::parse(path).map_err(op_err)?;
-    ops::remove(&mut doc, &p).map_err(op_err)?;
+    // The text API is value-oriented, so there is no mutable-borrow `get_mut`
+    // binding; `get`/`set`/`remove` cover the editing surface.
+    if recursive {
+        ops::remove_recursive(&mut doc, &p).map_err(op_err)?;
+    } else {
+        ops::remove(&mut doc, &p).map_err(op_err)?;
+    }
     serialize_to_string(&doc).map_err(serialize_err)
 }
 

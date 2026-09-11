@@ -35,6 +35,22 @@ def test_dumps_dict_keys():
     assert pykvd.loads(out) == doc
 
 
+def test_dumps_tuple_as_list():
+    assert pykvd.loads(pykvd.dumps({"t": (1, 2)})) == {"t": [1, 2]}
+
+
+def test_dumps_big_int_rejected():
+    with pytest.raises(pykvd.KvdError):
+        pykvd.dumps({"n": 2**70})
+    # u64 max is fine.
+    assert pykvd.loads(pykvd.dumps({"n": 2**64 - 1})) == {"n": 2**64 - 1}
+
+
+def test_dumps_scalar_root_error():
+    with pytest.raises(pykvd.KvdError, match="document root must be a mapping"):
+        pykvd.dumps(1)
+
+
 def test_canonical():
     assert pykvd.canonical("app:\n  port: 8080\n") == "app:\n  port: 8080\n"
 
@@ -65,6 +81,12 @@ def test_get_set_remove():
     assert pykvd.loads(updated) == {"app": {"port": 9090}}
     pruned = pykvd.remove(text, "app.port")
     assert pykvd.loads(pruned) == {"app": {}}
+
+
+def test_remove_recursive():
+    text = "a:\n  b:\n    c: 1\n"
+    assert pykvd.loads(pykvd.remove(text, "a.b.c")) == {"a": {"b": {}}}
+    assert pykvd.remove(text, "a.b.c", recursive=True) == ""
 
 
 def test_get_bad_path():
