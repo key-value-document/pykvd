@@ -4,25 +4,72 @@ Python bindings for the [KVD](https://github.com/key-value-document/kvd-spec)
 key-value document format, built on [`kvd-rs`](https://github.com/key-value-document/kvd-rs)
 via [PyO3](https://pyo3.rs) and [maturin](https://www.maturin.rs).
 
-## Install (from a built wheel)
+## Install
 
 ```sh
 pip install pykvd
 ```
 
-## Usage
+## Usage with files
+
+`loads` and `dumps` work with strings, so pair them with `open()` for files.
+This is the recommended way to read and write `.kvd` files.
 
 ```python
 import pykvd
 
-# Parse KVD into plain Python objects.
-doc = pykvd.loads("app:\n  port: 8080\n")
+# Read a KVD file into plain Python objects.
+with open("config.kvd") as f:
+    doc = pykvd.loads(f.read())
 assert doc == {"app": {"port": 8080}}
 
-# Serialize Python objects to canonical KVD.
+# Write Python objects to a KVD file (canonical form).
+doc = {"app": {"port": 8080, "tags": ["web", "api"]}}
+with open("config.kvd", "w") as f:
+    f.write(pykvd.dumps(doc))
+
+# Update one value in a file.
+with open("config.kvd") as f:
+    text = f.read()
+text = pykvd.set(text, "app.port", 9090)
+with open("config.kvd", "w") as f:
+    f.write(text)
+
+# Normalize a file to canonical form.
+with open("config.kvd") as f:
+    text = pykvd.canonical(f.read())
+with open("config.kvd", "w") as f:
+    f.write(text)
+
+# Verify a file against a schema file.
+with open("config.kvd") as f:
+    doc_text = f.read()
+with open("schema.kvd") as f:
+    schema_text = f.read()
+pykvd.verify(doc_text, schema_text)
+
+A matching `schema.kvd` for the example above:
+
+```kvd
+app:
+  port: int
+  tags:
+    type: list
+    element: str
+```
+
+## Usage with strings
+
+```python
+import pykvd
+
+# Parse KVD text into plain Python objects.
+doc = pykvd.loads("app:\n  port: 8080\n")
+
+# Serialize Python objects to canonical KVD text.
 pykvd.dumps({"app": {"port": 8080}})
 
-# Normalize/validate a KVD document to its canonical form.
+# Normalize/validate KVD text to its canonical form.
 pykvd.canonical("app:\n  port: 8080")
 
 # Verify a document against a schema document.
