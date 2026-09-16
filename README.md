@@ -18,15 +18,19 @@ This is the recommended way to read and write `.kvd` files.
 ```python
 import pykvd
 
-# Read a KVD file into plain Python objects.
-with open("config.kvd") as f:
-    doc = pykvd.loads(f.read())
-assert doc == {"app": {"port": 8080}}
-
 # Write Python objects to a KVD file (canonical form).
 doc = {"app": {"port": 8080, "tags": ["web", "api"]}}
 with open("config.kvd", "w") as f:
     f.write(pykvd.dumps(doc))
+
+# Write the matching schema file.
+with open("schema.kvd", "w") as f:
+    f.write("app:\n  port: int\n  tags:\n    type: list\n    element: str\n")
+
+# Read a KVD file into plain Python objects.
+with open("config.kvd") as f:
+    doc = pykvd.loads(f.read())
+assert doc == {"app": {"port": 8080, "tags": ["web", "api"]}}
 
 # Update one value in a file.
 with open("config.kvd") as f:
@@ -47,15 +51,6 @@ with open("config.kvd") as f:
 with open("schema.kvd") as f:
     schema_text = f.read()
 pykvd.verify(doc_text, schema_text)
-
-A matching `schema.kvd` for the example above:
-
-```kvd
-app:
-  port: int
-  tags:
-    type: list
-    element: str
 ```
 
 ## Usage with strings
