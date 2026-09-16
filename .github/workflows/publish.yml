@@ -1,6 +1,6 @@
-# Publish pykvd to TestPyPI on version tags (e.g. v1.1.0).
+# Publish pykvd to PyPI on version tags (e.g. v1.1.0).
 # Uses Trusted Publishing (OIDC), no API token needed.
-# One-time setup: on https://test.pypi.org/manage/project/pykvd/settings/publishing/
+# One-time setup: on https://pypi.org/manage/account/publishing/
 # add a GitHub publisher with owner key-value-document, repo pykvd,
 # workflow publish.yml (no environment).
 
@@ -49,8 +49,5 @@ jobs:
           maturin build --release --out dist
           ls -l dist
 
-      - name: Publish to TestPyPI
+      - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          repository-url: https://test.pypi.org/legacy/
-          verbose: true
